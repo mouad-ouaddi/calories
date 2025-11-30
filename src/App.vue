@@ -17,6 +17,16 @@ const authEmail = ref('')
 const authPassword = ref('')
 const authName = ref('')
 const showProfileMenu = ref(false)
+const authError = ref('')
+const authLoading = ref(false)
+const showAccountEdit = ref(false)
+const editName = ref('')
+const editEmail = ref('')
+const editCurrentPassword = ref('')
+const editNewPassword = ref('')
+const editConfirmPassword = ref('')
+const editError = ref('')
+const editLoading = ref(false)
 
 const parseNum = (v) => {
   const n = typeof v === 'string' ? parseFloat(v) : v
@@ -108,6 +118,44 @@ const saveUser = (u) => {
   localStorage.setItem('app_user', JSON.stringify(u))
   user.value = u
 }
+const getUsers = () => {
+  const raw = localStorage.getItem('app_users')
+  if (!raw) return []
+  try {
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr : []
+  } catch {
+    return []
+  }
+}
+const setUsers = (arr) => {
+  localStorage.setItem('app_users', JSON.stringify(arr))
+}
+const hashPassword = async (s) => {
+  const enc = new TextEncoder().encode(s)
+  const buf = await crypto.subtle.digest('SHA-256', enc)
+  const view = new Uint8Array(buf)
+  return Array.from(view).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+const registerUser = async (email, name, pass) => {
+  const users = getUsers()
+  if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+    throw new Error('Cet email est déjà utilisé')
+  }
+  const hash = await hashPassword(pass)
+  const u = { email, name, pass: hash }
+  users.push(u)
+  setUsers(users)
+  saveUser({ email, name })
+}
+const loginUser = async (email, pass) => {
+  const users = getUsers()
+  const found = users.find(u => u.email.toLowerCase() === email.toLowerCase())
+  if (!found) throw new Error('Compte introuvable')
+  const hash = await hashPassword(pass)
+  if (found.pass !== hash) throw new Error('Mot de passe incorrect')
+  saveUser({ email, name: found.name })
+}
 const loadUser = () => {
   const raw = localStorage.getItem('app_user')
   if (raw) {
@@ -119,22 +167,80 @@ const logout = () => {
   user.value = null
   showProfileMenu.value = false
 }
-const onAuthSubmit = () => {
+const openAccountEdit = () => {
+  editError.value = ''
+  editLoading.value = false
+  editName.value = user.value?.name || ''
+  editEmail.value = user.value?.email || ''
+  editCurrentPassword.value = ''
+  editNewPassword.value = ''
+  editConfirmPassword.value = ''
+  showAccountEdit.value = true
+}
+const closeAccountEdit = () => {
+  showAccountEdit.value = false
+}
+const onAuthSubmit = async () => {
+  authError.value = ''
   const email = authEmail.value.trim()
   const pass = authPassword.value.trim()
   const name = authName.value.trim()
-  if (authMode.value === 'register') {
-    const u = { email, name }
-    saveUser(u)
-    showAuth.value = false
-  } else {
-    const raw = localStorage.getItem('app_user')
-    if (raw) {
-      try { user.value = JSON.parse(raw) } catch {}
-      showAuth.value = false
+  if (!email) { authError.value = 'Email requis'; return }
+  if (!pass) { authError.value = 'Mot de passe requis'; return }
+  if (authMode.value === 'register' && name.length === 0) { authError.value = 'Nom requis'; return }
+  try {
+    authLoading.value = true
+    if (authMode.value === 'register') {
+      await registerUser(email, name, pass)
     } else {
-      authMode.value = 'register'
+      await loginUser(email, pass)
     }
+    showAuth.value = false
+    authEmail.value = ''
+    authPassword.value = ''
+    authName.value = ''
+  } catch (e) {
+    authError.value = e?.message || 'Erreur'
+  } finally {
+    authLoading.value = false
+  }
+}
+
+const onAccountSave = async () => {
+  editError.value = ''
+  if (!user.value) { editError.value = 'Non connecté'; return }
+  const prevEmail = (user.value.email || '').trim()
+  const name = editName.value.trim()
+  const email = editEmail.value.trim()
+  const cur = editCurrentPassword.value
+  const newp = editNewPassword.value
+  const conf = editConfirmPassword.value
+  const users = getUsers()
+  const idx = users.findIndex(u => u.email.toLowerCase() === prevEmail.toLowerCase())
+  if (idx === -1) { editError.value = 'Compte introuvable'; return }
+  const existsOther = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.email.toLowerCase() !== prevEmail.toLowerCase())
+  if (existsOther) { editError.value = 'Cet email est déjà utilisé'; return }
+  try {
+    editLoading.value = true
+    const rec = users[idx]
+    if (newp || conf || cur) {
+      if (!cur) { throw new Error('Mot de passe actuel requis') }
+      const curHash = await hashPassword(cur)
+      if (rec.pass !== curHash) { throw new Error('Mot de passe actuel incorrect') }
+      if (!newp) { throw new Error('Nouveau mot de passe requis') }
+      if (newp !== conf) { throw new Error('La confirmation ne correspond pas') }
+      rec.pass = await hashPassword(newp)
+    }
+    rec.name = name
+    rec.email = email
+    users[idx] = rec
+    setUsers(users)
+    saveUser({ email, name })
+    showAccountEdit.value = false
+  } catch (e) {
+    editError.value = e?.message || 'Erreur'
+  } finally {
+    editLoading.value = false
   }
 }
 
@@ -160,6 +266,7 @@ onMounted(() => {
         </button>
         <div v-if="showProfileMenu" class="menu">
           <div class="menu-item">{{ user?.name || user?.email }}</div>
+          <button class="menu-item" @click="openAccountEdit(); showProfileMenu = false">Modifier le compte</button>
           <button class="menu-item" @click="logout">Se déconnecter</button>
         </div>
       </div>
@@ -279,9 +386,43 @@ onMounted(() => {
             Mot de passe
             <input type="password" v-model="authPassword" required />
           </label>
+          <div v-if="authError" style="color:#e74c3c; font-size:14px;">{{ authError }}</div>
           <div class="modal-actions">
-            <button type="submit" class="primary">{{ authMode === 'login' ? 'Connexion' : 'Créer un compte' }}</button>
+            <button type="submit" class="primary" :disabled="authLoading">{{ authMode === 'login' ? 'Connexion' : 'Créer un compte' }}</button>
             <button type="button" class="link" @click="authMode = authMode === 'login' ? 'register' : 'login'">{{ authMode === 'login' ? 'Créer un compte' : 'J’ai déjà un compte' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div v-if="showAccountEdit" class="modal">
+      <div class="overlay" @click="closeAccountEdit"></div>
+      <div class="modal-card">
+        <h3>Modifier le compte</h3>
+        <form class="modal-form" @submit.prevent="onAccountSave">
+          <label>
+            Nom
+            <input type="text" v-model="editName" required />
+          </label>
+          <label>
+            Email
+            <input type="email" v-model="editEmail" required />
+          </label>
+          <label>
+            Mot de passe actuel
+            <input type="password" v-model="editCurrentPassword" placeholder="Requis si vous changez le mot de passe" />
+          </label>
+          <label>
+            Nouveau mot de passe
+            <input type="password" v-model="editNewPassword" placeholder="Optionnel" />
+          </label>
+          <label>
+            Confirmer le nouveau mot de passe
+            <input type="password" v-model="editConfirmPassword" placeholder="Optionnel" />
+          </label>
+          <div v-if="editError" style="color:#e74c3c; font-size:14px;">{{ editError }}</div>
+          <div class="modal-actions">
+            <button type="submit" class="primary" :disabled="editLoading">Enregistrer</button>
+            <button type="button" class="link" @click="closeAccountEdit">Annuler</button>
           </div>
         </form>
       </div>
