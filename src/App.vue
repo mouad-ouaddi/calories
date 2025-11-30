@@ -16,6 +16,7 @@ const activityOptions = [
   { value: '1.9', label: 'Très intense (2+ heures / jour)' },
 ]
 const hasCalculated = ref(false)
+const tab = ref('home')
 
 const theme = ref('dark')
 const user = ref(null)
@@ -477,7 +478,6 @@ onMounted(() => {
         <svg v-if="themeIcon === 'moon'" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/></svg>
         <svg v-else width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M12 18a6 6 0 1 0 0-12a6 6 0 0 0 0 12Zm0 4a1 1 0 0 1-1-1v-1a1 1 0 1 1 2 0v1a1 1 0 0 1-1 1Zm0-18a1 1 0 0 1-1-1V2a1 1 0 1 1 2 0v1a1 1 0 0 1-1 1Zm10 8a1 1 0 0 1-1-1v-1a1 1 0 1 1 2 0v1a1 1 0 0 1-1 1ZM3 12a1 1 0 0 1-1-1v-1a1 1 0 1 1 2 0v1a1 1 0 0 1-1 1Zm15.66 7.66a1 1 0 0 1-1.41 0l-.71-.71a1 1 0 1 1 1.41-1.41l.71.71a1 1 0 0 1 0 1.41ZM6.46 6.46a1 1 0 0 1-1.41 0l-.71-.71A1 1 0 0 1 5.75 3.64l.71.71a1 1 0 0 1 0 1.41Zm12.08-2.12a1 1 0 0 1 0 1.41l-.71.71a1 1 0 1 1-1.41-1.41l.71-.71a1 1 0 0 1 1.41 0ZM6.46 17.54a1 1 0 0 1 0 1.41l-.71.71A1 1 0 0 1 3.64 18.25l.71-.71a1 1 0 0 1 1.41 0Z"/></svg>
       </button>
-      <button class="icon-btn" @click="goRun" aria-label="Healthy Run">🎮 Healthy Run</button>
       <div class="profile">
         <button class="avatar" @click="user ? showProfileMenu = !showProfileMenu : showAuth = true">
           <span>{{ avatarLabel }}</span>
@@ -489,13 +489,17 @@ onMounted(() => {
         </div>
       </div>
     </div>
+    <nav class="subnav">
+      <button class="subnav-link" :class="{ active: tab === 'home' }" @click="goHome(); tab = 'home'">Accueil</button>
+      <button class="subnav-link" :class="{ active: tab === 'games' }" @click="goHome(); tab = 'games'">Jeux</button>
+    </nav>
   </div>
   <main class="container" v-if="currentPage === 'home'">
-    <header class="header">
+    <header class="header" v-show="tab === 'home'">
       <h1>Calculeur de calories</h1>
     </header>
 
-    <section class="card">
+    <section class="card" v-show="tab === 'home'">
       <h2>Vos informations</h2>
       <form class="grid advanced-form" @submit.prevent="calculate">
         <label class="field">
@@ -537,7 +541,7 @@ onMounted(() => {
       </form>
     </section>
 
-    <section v-if="hasCalculated" class="card">
+    <section v-show="hasCalculated && tab === 'home'" class="card">
       <h2>Résultats</h2>
       <div class="table-wrap">
         <table>
@@ -570,7 +574,17 @@ onMounted(() => {
 
       
     </section>
-    <section v-if="hasCalculated" class="card">
+
+    <section class="card" v-show="tab === 'games'">
+      <h2>Jeux</h2>
+      <div class="games-list">
+        <div class="game-item">
+          <div class="game-title">Healthy Run</div>
+          <div class="game-actions"><button class="primary" type="button" @click="goRun">Jouer</button></div>
+        </div>
+      </div>
+    </section>
+    <section v-show="hasCalculated && tab === 'home'" class="card">
       <h2>Plan nutritionnel</h2>
       <form class="grid" @submit.prevent>
         <label>
@@ -619,7 +633,7 @@ onMounted(() => {
       </div>
       <div v-if="planSaveMsg" style="color:#a6a6a6; margin-top:8px;">{{ planSaveMsg }}</div>
     </section>
-    <section class="card">
+    <section class="card" v-show="tab === 'home'">
       <h2>Historique des plans</h2>
       <div class="table-wrap">
         <table>
@@ -768,6 +782,10 @@ onMounted(() => {
 .menu { position: absolute; right: 0; top: calc(100% + 8px); background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; min-width: 200px; box-shadow: 0 10px 24px var(--shadow-color); overflow: hidden; }
 .menu-item { display: block; width: 100%; text-align: left; padding: 10px 12px; color: var(--text); background: transparent; border: none; cursor: pointer; }
 .menu-item:hover { background: rgba(255,204,0,0.06); }
+.subnav { grid-column: 1 / -1; justify-self: center; display: flex; gap: 28px; padding: 8px 0 6px; }
+.subnav-link { background: transparent; border: none; color: var(--muted); font-weight: 700; letter-spacing: .2px; padding: 6px 2px; cursor: pointer; }
+.subnav-link:hover { color: var(--text); }
+.subnav-link.active { color: var(--accent); }
 .container { max-width: 980px; margin: 0 auto; padding: 28px; }
 .header { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; }
 .header h1 { margin: 0; font-size: 22px; letter-spacing: .3px; color: var(--text); text-align: center; }
@@ -822,6 +840,9 @@ select option { color: inherit; background: initial; }
 .primary { background: #FFCC00; color: #111; border: none; padding: 14px 32px; border-radius: 12px; cursor: pointer; font-weight: 700; letter-spacing: .2px; box-shadow: 0 5px 15px rgba(255,204,0,0.35); transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; animation: pulseAccent 2.4s ease infinite; min-width: 260px; }
 .primary:hover { transform: scale(1.03); box-shadow: 0 8px 20px rgba(255,204,0,0.45); filter: saturate(1.05) brightness(1.03); }
 .primary:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
+ .games-list { display: grid; gap: 12px; }
+ .game-item { display: flex; align-items: center; justify-content: space-between; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 12px; padding: 14px 16px; }
+ .game-title { color: var(--text); font-weight: 600; }
  .table-wrap { overflow-x: auto; margin-top: 18px; border-radius: 12px; }
  table { width: 100%; border-collapse: separate; border-spacing: 0; }
  thead th { position: sticky; top: 0; z-index: 1; }
