@@ -90,6 +90,10 @@ const loadPlans = () => {
     savedPlans.value = []
   }
 }
+const showPlanPreview = ref(false)
+const previewPlan = ref(null)
+const openPlanPreview = (p) => { previewPlan.value = p; showPlanPreview.value = true }
+const closePlanPreview = () => { showPlanPreview.value = false; previewPlan.value = null }
 const runActive = ref(false)
 const runAvatarLane = ref(1)
 const runItems = ref([])
@@ -645,7 +649,7 @@ onMounted(() => {
               <td>{{ p.fatGrams }} g</td>
               <td>{{ p.carbsGrams }} g</td>
               <td>
-                <button type="button" @click="applySavedPlan(p)" class="primary" style="padding:6px 10px;">Charger</button>
+                <button type="button" @click="openPlanPreview(p)" class="primary" style="padding:6px 10px;">Charger</button>
                 <button type="button" @click="deletePlanAt(i)" class="link" style="margin-left:8px;">Supprimer</button>
               </td>
             </tr>
@@ -714,6 +718,25 @@ onMounted(() => {
             <button type="button" class="link" @click="closeAccountEdit">Annuler</button>
           </div>
         </form>
+      </div>
+    </div>
+    <div v-if="showPlanPreview" class="modal">
+      <div class="overlay" @click="closePlanPreview"></div>
+      <div class="modal-card plan-preview">
+        <h3>Aperçu du plan</h3>
+        <div class="preview-grid">
+          <div class="preview-item"><span class="label">Date</span><span class="value">{{ new Date(previewPlan.date).toLocaleString() }}</span></div>
+          <div class="preview-item"><span class="label">Objectif</span><span class="value">{{ previewPlan.goal }}</span></div>
+          <div class="preview-item"><span class="label">Préréglage</span><span class="value">{{ previewPlan.preset }}</span></div>
+          <div class="preview-item"><span class="label">Calories</span><span class="value">{{ previewPlan.calories }} kcal/j</span></div>
+          <div class="preview-item"><span class="label">Protéines</span><span class="value">{{ previewPlan.proteinGrams }} g/j</span></div>
+          <div class="preview-item"><span class="label">Lipides</span><span class="value">{{ previewPlan.fatGrams }} g/j</span></div>
+          <div class="preview-item"><span class="label">Glucides</span><span class="value">{{ previewPlan.carbsGrams }} g/j</span></div>
+          <div class="preview-item"><span class="label">Poids</span><span class="value">{{ previewPlan.weight }} kg</span></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="link" @click="closePlanPreview">Fermer</button>
+        </div>
       </div>
     </div>
   </main>
@@ -844,6 +867,12 @@ th { background: var(--thead-bg); color: var(--text); font-weight: 700; letter-s
 .form-message { margin-top: 8px; font-size: 14px; }
 .form-message.error { color: var(--error); }
 .form-message.success { color: var(--success); }
+.plan-preview { background: radial-gradient(120% 120% at 10% 0%, rgba(255,204,0,0.10) 0%, rgba(17,22,30,1) 40%), var(--card-bg); border: 1px solid rgba(255,204,0,0.25); box-shadow: 0 25px 50px var(--shadow-color), 0 0 0 1px rgba(255,204,0,0.08) inset; }
+.plan-preview h3 { font-weight: 700; letter-spacing: .3px; }
+.preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
+.preview-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--card-border); border-radius: 10px; background: rgba(255,255,255,0.02); }
+.preview-item .label { color: var(--muted); font-weight: 600; }
+.preview-item .value { color: var(--text); font-weight: 700; }
 .run-container { position: relative; height: 300px; margin-top: 12px; border-radius: 14px; overflow: hidden; background: linear-gradient(180deg, rgba(255,204,0,0.06), rgba(255,204,0,0.0)); box-shadow: inset 0 -30px 60px rgba(255,204,0,0.08); border: 1px solid #30363d; }
 .lane-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); background: linear-gradient(180deg, rgba(17,22,30,0.9), rgba(17,22,30,0.7)); }
 .lane-grid::before { content:""; position:absolute; inset:0; background: repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0, rgba(255,255,255,0.04) 10px, transparent 10px, transparent 20px); mix-blend-mode: overlay; }
