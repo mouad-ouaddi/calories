@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import UiSelect from './components/UiSelect.vue'
 
 const age = ref('')
 const sex = ref('homme')
@@ -7,6 +8,13 @@ const height = ref('')
 const weight = ref('')
 const bodyFat = ref('')
 const activity = ref('1.55')
+const activityOptions = [
+  { value: '1.2', label: 'Sédentaire (peu ou pas d’exercice)' },
+  { value: '1.375', label: 'Léger (15–30 min / jour)' },
+  { value: '1.55', label: 'Modéré (30–60 min / jour)' },
+  { value: '1.725', label: 'Intense (60–120 min / jour)' },
+  { value: '1.9', label: 'Très intense (2+ heures / jour)' },
+]
 const hasCalculated = ref(false)
 
 const theme = ref('dark')
@@ -254,7 +262,7 @@ onMounted(() => {
 
 <template>
   <div class="appbar">
-    <div class="brand">Calories</div>
+    <div class="brand">caltracker</div>
     <div class="actions-bar">
       <button class="icon-btn" @click="toggleTheme" :aria-label="theme === 'dark' ? 'Mode clair' : 'Mode sombre'">
         <svg v-if="themeIcon === 'moon'" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/></svg>
@@ -274,47 +282,44 @@ onMounted(() => {
   </div>
   <main class="container">
     <header class="header">
-      <h1>Calculateur de Calories</h1>
-      <p>Calculez votre apport calorique quotidien en utilisant des formules reconnues.</p>
+      <h1>Calculeur de calories</h1>
     </header>
 
     <section class="card">
       <h2>Vos informations</h2>
-      <form class="grid" @submit.prevent="calculate">
-        <label>
-          Âge
-          <input type="number" min="0" step="1" v-model="age" placeholder="années" required />
+      <form class="grid advanced-form" @submit.prevent="calculate">
+        <label class="field">
+          <input type="number" min="0" step="1" v-model="age" placeholder="Entrez votre âge" required />
+          <span class="label-text">Âge</span>
         </label>
-        <fieldset class="fieldset">
-          <legend>Sexe</legend>
-          <label class="inline">
-            <input type="radio" value="homme" v-model="sex" /> Homme
-          </label>
-          <label class="inline">
-            <input type="radio" value="femme" v-model="sex" /> Femme
-          </label>
-        </fieldset>
-        <label>
-          Taille (cm)
-          <input type="number" min="0" step="0.1" v-model="height" placeholder="cm" required />
+        <div class="field">
+          <span class="label-text">Sexe</span>
+          <div class="segmented">
+            <label class="seg-option">
+              <input type="radio" value="homme" v-model="sex" />
+              <span>Homme</span>
+            </label>
+            <label class="seg-option">
+              <input type="radio" value="femme" v-model="sex" />
+              <span>Femme</span>
+            </label>
+          </div>
+        </div>
+        <label class="field">
+          <input type="number" min="0" step="0.1" v-model="height" placeholder="Ex: 178" required />
+          <span class="label-text">Taille (cm)</span>
         </label>
-        <label>
-          Poids (kg)
-          <input type="number" min="0" step="0.1" v-model="weight" placeholder="kg" required />
+        <label class="field">
+          <input type="number" min="0" step="0.1" v-model="weight" placeholder="Ex: 72.5" required />
+          <span class="label-text">Poids (kg)</span>
         </label>
-        <label>
-          Masse grasse (%)
-          <input type="number" min="0" max="100" step="0.1" v-model="bodyFat" placeholder="optionnel" />
+        <label class="field">
+          <input type="number" min="0" max="100" step="0.1" v-model="bodyFat" placeholder="Optionnel" />
+          <span class="label-text">Masse grasse (%)</span>
         </label>
-        <label>
-          Niveau d’activité
-          <select v-model="activity">
-            <option value="1.2">Sédentaire (peu ou pas d’exercice)</option>
-            <option value="1.375">Léger (15–30 min / jour)</option>
-            <option value="1.55">Modéré (30–60 min / jour)</option>
-            <option value="1.725">Intense (60–120 min / jour)</option>
-            <option value="1.9">Très intense (2+ heures / jour)</option>
-          </select>
+        <label class="field select-field">
+          <UiSelect v-model="activity" :options="activityOptions" placeholder="Sélectionnez un niveau" />
+          <span class="label-text">Niveau d’activité</span>
         </label>
         <div class="actions">
           <button type="submit" class="primary">Calculer</button>
@@ -417,34 +422,68 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.appbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #1f2937; background: #11161e; position: sticky; top: 0; z-index: 50; }
-.brand { font-weight: 800; letter-spacing: .4px; color: var(--text); }
-.actions-bar { display: flex; align-items: center; gap: 10px; }
+.appbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 12px 20px; border-bottom: none; background: transparent; position: sticky; top: 0; z-index: 50; }
+.brand { grid-column: 2; justify-self: center; font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Oxygen, Fira Sans, Droid Sans, Helvetica Neue, Arial, sans-serif; font-weight: 900; letter-spacing: .8px; text-transform: uppercase; color: var(--accent); font-size: 28px; text-shadow: 0 1px 0 rgba(0,0,0,0.25); }
+.actions-bar { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 10px; }
 .icon-btn { background: transparent; color: var(--accent); border: 1px solid rgba(255,204,0,0.45); border-radius: 999px; padding: 8px 10px; display: inline-flex; align-items: center; justify-content: center; transition: transform .18s ease, filter .18s ease, box-shadow .18s ease; }
 .icon-btn:hover { transform: translateY(-2px); filter: brightness(1.05); box-shadow: 0 8px 20px rgba(255,204,0,0.18); }
 .profile { position: relative; }
-.avatar { background: #0f141b; color: var(--accent); border: 1px solid rgba(255,204,0,0.45); width: 36px; height: 36px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
-.menu { position: absolute; right: 0; top: calc(100% + 8px); background: #0f141b; border: 1px solid #30363d; border-radius: 10px; min-width: 200px; box-shadow: 0 10px 24px rgba(0,0,0,0.35); overflow: hidden; }
+.avatar { background: var(--input-bg); color: var(--accent); border: 1px solid var(--input-border); width: 36px; height: 36px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
+.menu { position: absolute; right: 0; top: calc(100% + 8px); background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; min-width: 200px; box-shadow: 0 10px 24px var(--shadow-color); overflow: hidden; }
 .menu-item { display: block; width: 100%; text-align: left; padding: 10px 12px; color: var(--text); background: transparent; border: none; cursor: pointer; }
 .menu-item:hover { background: rgba(255,204,0,0.06); }
 .container { max-width: 980px; margin: 0 auto; padding: 28px; }
-.header { display: flex; flex-direction: column; gap: 6px; }
-.header h1 { margin: 0; font-size: 32px; letter-spacing: .2px; color: var(--text); }
-.header p { margin: 0; color: var(--muted); }
+.header { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; }
+.header h1 { margin: 0; font-size: 22px; letter-spacing: .3px; color: var(--text); text-align: center; }
 .card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid var(--card-border); border-radius: 16px; padding: 35px 40px; box-shadow: 0 20px 40px var(--shadow-color), 0 0 20px rgba(255,204,0,0.08); position: relative; animation: fadeUp .45s ease both; }
 .card::before { content: ""; position: absolute; inset: 0; border-radius: 16px; pointer-events: none; box-shadow: 0 0 0 1px rgba(255,204,0,0.10) inset; }
 .card + .card { margin-top: 24px; }
 .card > h2 { font-size: 22px; font-weight: 600; letter-spacing: 0.5px; margin: 0 0 14px; }
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 label { display: flex; flex-direction: column; gap: 8px; font-weight: 600; color: var(--text); }
-input, select { background: var(--input-bg); color: var(--text); border: 1px solid var(--input-border); border-radius: 10px; padding: 12px 14px; font-size: 14px; transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.advanced-form { row-gap: 22px; }
+.field { position: relative; display: flex; flex-direction: column; gap: 10px; animation: fieldFade .35s ease both; }
+.advanced-form .field:nth-child(1) { animation-delay: .02s; }
+.advanced-form .field:nth-child(2) { animation-delay: .06s; }
+.advanced-form .field:nth-child(3) { animation-delay: .1s; }
+.advanced-form .field:nth-child(4) { animation-delay: .14s; }
+.advanced-form .field:nth-child(5) { animation-delay: .18s; }
+.advanced-form .field:nth-child(6) { animation-delay: .22s; }
+.label-text { position: absolute; top: -10px; left: 12px; font-size: 12px; color: var(--muted); letter-spacing: .2px; background: var(--card-bg); padding: 0 6px; border-radius: 6px; transition: top .25s cubic-bezier(.2,.7,.2,1), left .25s cubic-bezier(.2,.7,.2,1), transform .25s cubic-bezier(.2,.7,.2,1), font-size .25s ease, background-color .25s ease, color .25s ease, padding .25s ease; will-change: top, left, transform; }
+.field:focus-within .label-text { color: var(--text); }
+.field input::placeholder { opacity: 0; transition: opacity .18s ease; }
+.field select::placeholder { opacity: 0; }
+.field input:focus:placeholder-shown + .label-text {
+  top: 50%; left: 16px; transform: translateY(-50%);
+  font-size: 14px; background: transparent; color: var(--muted); padding: 0 8px;
+}
+.field select:focus + .label-text {
+  top: -10px; left: 12px; transform: none;
+  font-size: 12px; background: var(--card-bg); color: var(--muted); padding: 0 6px;
+}
+.field input:not(:placeholder-shown) + .label-text,
+.field select + .label-text {
+  top: -10px; left: 12px; transform: none; font-size: 12px; padding: 0 6px;
+}
+@keyframes fieldFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+input, select { background: var(--input-bg); color: var(--text); border: 1px solid var(--input-border); border-radius: 12px; padding: 14px 16px; font-size: 14px; height: var(--input-h); box-shadow: 0 2px 6px rgba(0,0,0,0.06); transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+input, select { box-sizing: border-box; line-height: 1.25; }
 input::placeholder, select::placeholder { color: var(--placeholder); }
 input:focus, select:focus { outline: none; border-color: #f1c40f; box-shadow: 0 0 0 3px rgba(241,196,15,0.2); transform: translateY(-1px); }
+.select-field select { appearance: auto; -webkit-appearance: auto; -moz-appearance: auto; padding-right: 16px; }
+.select-field::after { display: none; }
+select option { color: inherit; background: initial; }
 .fieldset { border: 1px solid #30363d; border-radius: 10px; padding: 12px 14px; }
 .inline { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; color: var(--text); }
 .inline input[type="radio"] { accent-color: #f1c40f; }
-.actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
-.primary { background: #FFCC00; color: #111; border: none; padding: 12px 26px; border-radius: 12px; cursor: pointer; font-weight: 700; letter-spacing: .2px; box-shadow: 0 5px 15px rgba(255,204,0,0.35); transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; animation: pulseAccent 2.4s ease infinite; }
+.segmented { display: inline-flex; gap: 8px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 12px; padding: 6px; }
+.seg-option { position: relative; display: inline-flex; }
+.seg-option input { position: absolute; opacity: 0; pointer-events: none; }
+.seg-option span { display: inline-block; padding: 8px 14px; border-radius: 10px; color: var(--text); transition: background-color .18s ease, color .18s ease, transform .18s ease; }
+.seg-option:hover span { transform: translateY(-1px); }
+.seg-option input:checked + span { background: rgba(255,204,0,0.18); color: var(--text); box-shadow: 0 0 0 2px rgba(255,204,0,0.35) inset; }
+.actions { grid-column: 1 / -1; display: flex; justify-content: center; }
+.primary { background: #FFCC00; color: #111; border: none; padding: 14px 32px; border-radius: 12px; cursor: pointer; font-weight: 700; letter-spacing: .2px; box-shadow: 0 5px 15px rgba(255,204,0,0.35); transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; animation: pulseAccent 2.4s ease infinite; min-width: 260px; }
 .primary:hover { transform: scale(1.03); box-shadow: 0 8px 20px rgba(255,204,0,0.45); filter: saturate(1.05) brightness(1.03); }
 .primary:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
  .table-wrap { overflow-x: auto; margin-top: 18px; border-radius: 12px; }
@@ -461,7 +500,7 @@ th { background: var(--thead-bg); color: var(--text); font-weight: 700; letter-s
 
 .modal { position: fixed; inset: 0; display: grid; place-items: center; z-index: 100; }
 .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); }
-.modal-card { position: relative; background: #11161e; border: 1px solid #30363d; border-radius: 14px; padding: 18px; width: 92%; max-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.35); animation: fadeUp .25s ease both; }
+.modal-card { position: relative; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 18px; width: 92%; max-width: 420px; box-shadow: 0 20px 40px var(--shadow-color); animation: fadeUp .25s ease both; }
 .modal-card h3 { margin: 0 0 10px 0; color: var(--text); }
 .modal-form { display: grid; gap: 12px; }
 .modal-actions { display: flex; gap: 10px; align-items: center; }
