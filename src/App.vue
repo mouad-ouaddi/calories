@@ -31,6 +31,8 @@ const authLoading = ref(false)
 const currentPage = ref('home')
 const goHome = () => { currentPage.value = 'home' }
 const goRun = () => { currentPage.value = 'run' }
+const goJump = () => { currentPage.value = 'jump' }
+const goMatch = () => { currentPage.value = 'match' }
 const goal = ref('maintain')
 const macroPreset = ref('equilibre')
 const macroPresets = {
@@ -58,6 +60,10 @@ const macros = computed(() => {
   return { calories, proteinGrams, fatGrams, carbsGrams }
 })
 const planSaveMsg = ref('')
+const getPlansKey = () => {
+  const email = (user.value?.email || '').trim().toLowerCase()
+  return 'saved_plans:' + (email || 'guest')
+}
 const savePlan = () => {
   planSaveMsg.value = ''
   const entry = {
@@ -70,19 +76,19 @@ const savePlan = () => {
     carbsGrams: macros.value.carbsGrams,
     weight: parseNum(weight.value),
   }
-  const raw = localStorage.getItem('saved_plans')
+  const raw = localStorage.getItem(getPlansKey())
   let arr = []
   if (raw) {
     try { arr = JSON.parse(raw) } catch {}
   }
   arr.push(entry)
-  localStorage.setItem('saved_plans', JSON.stringify(arr))
+  localStorage.setItem(getPlansKey(), JSON.stringify(arr))
   planSaveMsg.value = 'Plan enregistré'
   loadPlans()
 }
 const savedPlans = ref([])
 const loadPlans = () => {
-  const raw = localStorage.getItem('saved_plans')
+  const raw = localStorage.getItem(getPlansKey())
   if (!raw) { savedPlans.value = []; return }
   try {
     const v = JSON.parse(raw)
@@ -111,12 +117,11 @@ const runLevel = computed(() => {
   if (h >= 50) return 2
   return 1
 })
-const runEmoji = computed(() => {
-  const l = runLevel.value
-  return l === 4 ? '💪' : l === 3 ? '🏃' : l === 2 ? '🙂' : '😐'
-})
+const runEmojiOptions = ['🏃','🤸','🕺','💃','🏋️','🚴','⛹️','🧘']
+const runEmojiBase = ref('🏃')
+const runEmoji = computed(() => runLevel.value >= 4 ? '💪' : runEmojiBase.value)
 const runLevelImageUrl = computed(() => '/assets/runner/level-' + runLevel.value + '.png')
-const runAvatarSrc = computed(() => runAvatarUrl.value || runLevelImageUrl.value)
+const runAvatarSrc = computed(() => runAvatarUrl.value || '')
 const runAvatarUrl = ref('')
 const loadRunAvatarFromBackend = async () => {
   try {
@@ -132,8 +137,8 @@ const loadRunAvatarFromBackend = async () => {
 let runTickHandle = null
 let runSpawnHandle = null
 let runContainerHeight = 260
-const healthyIcons = ['🍚','🍗','🥦','🍎','💧']
-const junkIcons = ['🍔','🍕','🥤','🍟']
+const healthyIcons = ['🍚','🍗','🥦','🍎','💧','🥑','🍌','🍇','🍊','🥕','🥛','🍓','🐟','🥗','🥜']
+const junkIcons = ['🍔','🍕','🥤','🍟','🍩','🍰','🍫','🌭','🧁','🍦','🧃']
 const loadRunBest = () => {
   const raw = localStorage.getItem('healthy_run_best')
   if (raw) {
@@ -200,6 +205,7 @@ const startRun = async () => {
   runHealth.value = 0
   runCombo.value = 0
   runLastJunkAt.value = 0
+  runEmojiBase.value = runEmojiOptions[Math.floor(Math.random()*runEmojiOptions.length)]
   loadRunBest()
   await loadRunAvatarFromBackend()
   window.addEventListener('keydown', onKeydown)
@@ -219,7 +225,171 @@ const stopRun = () => {
     localStorage.setItem('healthy_run_best', String(runBest.value))
   }
 }
- 
+
+// Jumping Jacks Game (simple runner-like)
+const jumpActive = ref(false)
+const jumpLost = ref(false)
+const jumpJacks = ref(0)
+const jumpCalories = computed(() => (jumpJacks.value * 0.2).toFixed(1))
+const jumpBest = ref(0)
+const jumpY = ref(0)
+const jumpVel = ref(0)
+const jumpGravity = 0.9
+const jumpGround = 0
+const obstacles = ref([])
+let jumpTickHandle = null
+let jumpSpawnHandle = null
+const burgerIcons = ['🍔','🍕']
+const drinkIcons = ['🥤','🍺']
+const caloriePulse = ref(false)
+const calorieBursts = ref([])
+const spawnCalorieBurst = () => {
+  const id = Date.now() + Math.random()
+  calorieBursts.value = [...calorieBursts.value, { id }]
+  setTimeout(() => {
+    calorieBursts.value = calorieBursts.value.filter(b => b.id !== id)
+  }, 900)
+}
+const spawnObstacle = () => {
+  const id = Date.now() + Math.random()
+  const type = Math.random() < 0.5 ? 'burger' : 'drink'
+  const icon = type === 'burger' ? burgerIcons[Math.floor(Math.random()*burgerIcons.length)] : drinkIcons[Math.floor(Math.random()*drinkIcons.length)]
+  obstacles.value = [...obstacles.value, { id, x: 100, w: 6, icon }]
+}
+const jump = () => {
+  if (!jumpActive.value) return
+  jumpVel.value = -10
+  jumpJacks.value += 1
+  caloriePulse.value = true
+  setTimeout(() => { caloriePulse.value = false }, 250)
+  spawnCalorieBurst()
+}
+const onJumpKey = (e) => {
+  if (!jumpActive.value) return
+  if (e.key === ' ' || e.key === 'Space' || e.key === 'ArrowUp') { e.preventDefault(); jump() }
+}
+const tickJump = () => {
+  jumpVel.value += jumpGravity
+  jumpY.value = Math.min(jumpGround, jumpY.value + jumpVel.value)
+  if (jumpY.value >= jumpGround) { jumpY.value = jumpGround; jumpVel.value = 0 }
+  const remain = []
+  for (const ob of obstacles.value) {
+    const nx = ob.x - 1.8
+    const coll = Math.abs(nx - 10) < 3 && jumpY.value > -6
+    if (coll && !jumpLost.value) {
+      jumpLost.value = true
+      stopJump()
+    }
+    if (nx > -10) remain.push({ ...ob, x: nx })
+  }
+  obstacles.value = remain
+}
+const startJump = () => {
+  if (jumpActive.value) return
+  jumpActive.value = true
+  jumpLost.value = false
+  jumpJacks.value = 0
+  jumpY.value = jumpGround
+  jumpVel.value = 0
+  obstacles.value = []
+  window.addEventListener('keydown', onJumpKey)
+  jumpTickHandle = setInterval(tickJump, 16)
+  jumpSpawnHandle = setInterval(spawnObstacle, 1300)
+}
+const stopJump = () => {
+  if (!jumpActive.value) return
+  jumpActive.value = false
+  window.removeEventListener('keydown', onJumpKey)
+  if (jumpTickHandle) clearInterval(jumpTickHandle)
+  if (jumpSpawnHandle) clearInterval(jumpSpawnHandle)
+  jumpTickHandle = null
+  jumpSpawnHandle = null
+  if (jumpJacks.value > jumpBest.value) jumpBest.value = jumpJacks.value
+}
+
+const matchActive = ref(false)
+const matchDeck = ref([])
+const matchFlip1 = ref(null)
+const matchFlip2 = ref(null)
+const matchErrors = ref(0)
+const matchNow = ref(0)
+const matchStartAt = ref(0)
+const matchTime = computed(() => {
+  const t = matchStartAt.value > 0 ? ((matchNow.value - matchStartAt.value) / 1000) : 0
+  return t.toFixed(1)
+})
+const matchWon = computed(() => matchDeck.value.length > 0 && matchDeck.value.every(c => c.matched))
+let matchTimeHandle = null
+const pairs = [
+  { key: 'steak', icon: '🥩' },
+  { key: 'banana', icon: '🍌' },
+  { key: 'chicken', icon: '🍗' },
+  { key: 'bread', icon: '🍞' },
+  { key: 'rice', icon: '🍚' },
+  { key: 'orange', icon: '🍊' },
+  { key: 'strawberry', icon: '🍓' },
+  { key: 'grapes', icon: '🍇' },
+]
+const shuffle = (arr) => {
+  const a = arr.slice()
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = a[i]; a[i] = a[j]; a[j] = tmp
+  }
+  return a
+}
+const buildMatchDeck = () => {
+  const cards = []
+  for (const p of pairs) {
+    cards.push({ id: Date.now() + Math.random(), key: p.key, kind: 'emoji', icon: p.icon, flipped: false, matched: false })
+    cards.push({ id: Date.now() + Math.random(), key: p.key, kind: 'emoji', icon: p.icon, flipped: false, matched: false })
+  }
+  matchDeck.value = shuffle(cards)
+}
+const startMatch = () => {
+  if (matchActive.value) return
+  matchActive.value = true
+  matchErrors.value = 0
+  matchFlip1.value = null
+  matchFlip2.value = null
+  buildMatchDeck()
+  matchStartAt.value = Date.now()
+  matchNow.value = Date.now()
+  matchTimeHandle = setInterval(() => { matchNow.value = Date.now() }, 60)
+}
+const stopMatch = () => {
+  if (!matchActive.value) return
+  matchActive.value = false
+  if (matchTimeHandle) clearInterval(matchTimeHandle)
+  matchTimeHandle = null
+}
+const flipCard = (c) => {
+  if (!matchActive.value) return
+  if (c.matched || c.flipped) return
+  if (matchFlip1.value && matchFlip2.value) return
+  c.flipped = true
+  if (!matchFlip1.value) { matchFlip1.value = c; return }
+  matchFlip2.value = c
+  const a = matchFlip1.value
+  const b = matchFlip2.value
+  const ok = a.key === b.key
+  if (ok) {
+    a.matched = true
+    b.matched = true
+    matchFlip1.value = null
+    matchFlip2.value = null
+    if (matchWon.value) { stopMatch() }
+  } else {
+    matchErrors.value += 1
+    setTimeout(() => {
+      a.flipped = false
+      b.flipped = false
+      matchFlip1.value = null
+      matchFlip2.value = null
+    }, 1000)
+  }
+}
+
  
 const applySavedPlan = (p) => {
   goal.value = p.goal
@@ -228,7 +398,7 @@ const applySavedPlan = (p) => {
   planSaveMsg.value = 'Plan chargé'
 }
 const deletePlanAt = (i) => {
-  const raw = localStorage.getItem('saved_plans')
+  const raw = localStorage.getItem(getPlansKey())
   let arr = []
   if (raw) {
     try { arr = JSON.parse(raw) } catch {}
@@ -236,7 +406,7 @@ const deletePlanAt = (i) => {
   const idx = (arr.length - 1) - i
   if (idx >= 0 && idx < arr.length) {
     arr.splice(idx, 1)
-    localStorage.setItem('saved_plans', JSON.stringify(arr))
+    localStorage.setItem(getPlansKey(), JSON.stringify(arr))
   }
   loadPlans()
 }
@@ -338,6 +508,7 @@ const avatarLabel = computed(() => {
 const saveUser = (u) => {
   localStorage.setItem('app_user', JSON.stringify(u))
   user.value = u
+  loadPlans()
 }
 const getUsers = () => {
   const raw = localStorage.getItem('app_users')
@@ -387,6 +558,7 @@ const logout = () => {
   localStorage.removeItem('app_user')
   user.value = null
   showProfileMenu.value = false
+  loadPlans()
 }
 const openAccountEdit = () => {
   editError.value = ''
@@ -579,13 +751,47 @@ onMounted(() => {
       
     </section>
 
-    <section class="card" v-show="tab === 'games'">
-      <h2>Jeux</h2>
-      <div class="games-list">
-        <div class="game-item">
-          <div class="game-title">Healthy Run</div>
-          <div class="game-actions"><button class="primary" type="button" @click="goRun">Jouer</button></div>
-        </div>
+    <section class="card games-section" v-show="tab === 'games'">
+      <header class="games-header">
+        <h1 class="games-title">Jeux</h1>
+      </header>
+      <div class="games-grid">
+        <article class="game-card">
+          <div class="game-icon-circle">🏃</div>
+          <div class="game-info">
+            <div class="game-title">Healthy Run</div>
+            <div class="game-desc">Attrape les aliments sains, évite le junk, fais le meilleur score.</div>
+            <div class="game-tags">
+              <span class="tag">Arcade</span>
+              <span class="tag tag-green">Réflexes</span>
+            </div>
+          </div>
+          <div class="game-actions"><button class="primary game-play" type="button" @click="goRun">Jouer</button></div>
+        </article>
+        <article class="game-card">
+          <div class="game-icon-circle">🤸</div>
+          <div class="game-info">
+            <div class="game-title">Jumping Jacks</div>
+            <div class="game-desc">Clique ou tape pour faire des jumping jacks, brûle des calories et évite les burgers/boissons.</div>
+            <div class="game-tags">
+              <span class="tag">Fitness</span>
+              <span class="tag tag-green">Réflexes</span>
+            </div>
+          </div>
+          <div class="game-actions"><button class="primary game-play" type="button" @click="goJump">Jouer</button></div>
+        </article>
+        <article class="game-card">
+          <div class="game-icon-circle">🧩</div>
+          <div class="game-info">
+            <div class="game-title">Calorie Match</div>
+            <div class="game-desc">Associe les emojis identiques. 16 cartes (8 paires).</div>
+            <div class="game-tags">
+              <span class="tag">Mémoire</span>
+              <span class="tag tag-green">Nutrition</span>
+            </div>
+          </div>
+          <div class="game-actions"><button class="primary game-play" type="button" @click="goMatch">Jouer</button></div>
+        </article>
       </div>
     </section>
     <section v-show="hasCalculated && tab === 'home'" class="card">
@@ -653,7 +859,10 @@ onMounted(() => {
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody>
+        <tbody>
+            <tr v-if="!user">
+              <td colspan="8" style="color: var(--muted);">Connectez-vous pour voir vos plans</td>
+            </tr>
             <tr v-for="(p,i) in savedPlans" :key="p.date">
               <td>{{ new Date(p.date).toLocaleString() }}</td>
               <td>{{ p.goal }}</td>
@@ -667,7 +876,7 @@ onMounted(() => {
                 <button type="button" @click="deletePlanAt(i)" class="link" style="margin-left:8px;">Supprimer</button>
               </td>
             </tr>
-            <tr v-if="savedPlans.length === 0">
+            <tr v-if="user && savedPlans.length === 0">
               <td colspan="8" style="color: var(--muted);">Aucun plan enregistré</td>
             </tr>
           </tbody>
@@ -754,24 +963,17 @@ onMounted(() => {
       </div>
     </div>
   </main>
-  <main class="container" v-else>
+  <main class="container" v-else-if="currentPage === 'run'">
     <header class="header">
       <h1>Healthy Run – Le Parcours Santé</h1>
       <p>Attrape les aliments sains, évite le junk, deviens super fit.</p>
     </header>
-    <section class="card">
-      <h2>Contrôles</h2>
-      <div class="grid">
-        <div>← Aller à gauche</div>
-        <div>→ Aller à droite</div>
-      </div>
-    </section>
+    
     <section class="card">
       <h2>Jeu</h2>
       <div style="display:flex; gap:12px; align-items:center;">
         <button class="primary" type="button" @click="startRun">Start</button>
         <button class="link" type="button" @click="stopRun">Stop</button>
-        <button class="link" type="button" @click="goHome">Retour</button>
         <div style="color: var(--muted);">Distance: {{ runDistance }} m • Santé: {{ runHealth }} • Vitesse: {{ runSpeed }}</div>
       </div>
       <div class="run-container">
@@ -792,11 +994,65 @@ onMounted(() => {
       </div>
     </section>
   </main>
+  <main class="container" v-else-if="currentPage === 'jump'">
+    <header class="header">
+      <h1>Jumping Jacks – Tap to Burn</h1>
+      <p>Chaque clic = 1 jumping jack (0,2 kcal). Évite les 🍔 et 🥤.</p>
+    </header>
+    <section class="card">
+      <h2>Jeu</h2>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <button class="primary" type="button" @click="startJump">Start</button>
+        <button class="link" type="button" @click="stopJump">Stop</button>
+        <div style="color: var(--muted);">Jacks: {{ jumpJacks }} • Meilleur: {{ jumpBest }} • <span :class="['kcal-display', { 'kcal-pulse': caloriePulse }]">Calories: {{ jumpCalories }} kcal</span></div>
+      </div>
+      <div class="jump-container" @click="jump">
+        <div class="ground"></div>
+        <div class="dino" :style="{ bottom: (10 + Math.max(0, -jumpY)) + 'px' }">🤸</div>
+        <div v-for="ob in obstacles" :key="ob.id" class="obstacle" :style="{ left: ob.x + '%'}">
+          <div class="ob-icon">{{ ob.icon }}</div>
+        </div>
+        <div v-for="b in calorieBursts" :key="b.id" class="burst" :style="{ left: '14%', bottom: (50 + Math.max(0, -jumpY)) + 'px' }">+0,2 kcal</div>
+        <div v-if="jumpLost" class="jump-lost">Tu as perdu</div>
+        <div v-else-if="!jumpActive" class="jump-hint">Clique ou espace pour sauter</div>
+      </div>
+    </section>
+  </main>
+  <main class="container" v-else-if="currentPage === 'match'">
+    <header class="header">
+      <h1>Emoji Match — Mémoire Rapide</h1>
+      <p>Associe les emojis identiques le plus vite possible (16 cartes).</p>
+    </header>
+    <section class="card">
+      <h2>Jeu</h2>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <button class="primary" type="button" @click="startMatch">Start</button>
+        <button class="link" type="button" @click="stopMatch">Stop</button>
+        <div style="color: var(--muted);">Temps: {{ matchTime }} s • Erreurs: {{ matchErrors }}</div>
+      </div>
+      <div class="match-container">
+        <div class="match-grid">
+          <div v-for="c in matchDeck" :key="c.id" class="match-card" :class="{ flipped: c.flipped || c.matched, matched: c.matched }" @click="flipCard(c)">
+            <div class="face front">?</div>
+            <div class="face back">
+              <div class="food-icon" style="font-size:28px;">{{ c.icon }}</div>
+            </div>
+          </div>
+        </div>
+        <div v-if="matchWon" class="match-win">
+          <div>Bravo ! Tu connais mieux les calories 🎉</div>
+          <div style="margin-top:8px; color: var(--muted);">Temps: {{ matchTime }} s • Erreurs: {{ matchErrors }}</div>
+          <div style="margin-top:10px;"><button class="primary" type="button" @click="startMatch">Rejouer</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
 </template>
 
 <style scoped>
-.appbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 12px 20px; border-bottom: none; background: transparent; position: sticky; top: 0; z-index: 50; }
-.brand { grid-column: 2; justify-self: center; font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Oxygen, Fira Sans, Droid Sans, Helvetica Neue, Arial, sans-serif; font-weight: 900; letter-spacing: .8px; text-transform: uppercase; color: var(--accent); font-size: 28px; text-shadow: 0 1px 0 rgba(0,0,0,0.25); }
+.appbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 12px 20px; border-bottom: none; background: transparent; position: static; }
+.brand { grid-column: 2; justify-self: center; font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Oxygen, Fira Sans, Droid Sans, Helvetica Neue, Arial, sans-serif; font-weight: 900; letter-spacing: .8px; text-transform: uppercase; color: var(--accent); font-size: 28px; text-shadow: 0 1px 0 rgba(0,0,0,0.25); position: relative; cursor: pointer; transition: text-shadow .18s ease, filter .18s ease; }
+.brand:hover { text-shadow: 0 0 6px rgba(255,204,0,0.55), 0 0 16px rgba(255,204,0,0.35); filter: brightness(1.06); }
 .actions-bar { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 10px; }
 .icon-btn { background: transparent; color: var(--accent); border: 1px solid rgba(255,204,0,0.45); border-radius: 999px; padding: 8px 10px; display: inline-flex; align-items: center; justify-content: center; transition: transform .18s ease, filter .18s ease, box-shadow .18s ease; }
 .icon-btn:hover { transform: translateY(-2px); filter: brightness(1.05); box-shadow: 0 8px 20px rgba(255,204,0,0.18); }
@@ -806,9 +1062,11 @@ onMounted(() => {
 .menu-item { display: block; width: 100%; text-align: left; padding: 10px 12px; color: var(--text); background: transparent; border: none; cursor: pointer; }
 .menu-item:hover { background: rgba(255,204,0,0.06); }
 .subnav { grid-column: 1 / -1; justify-self: center; display: flex; gap: 28px; padding: 8px 0 6px; }
-.subnav-link { background: transparent; border: none; color: var(--muted); font-weight: 700; letter-spacing: .2px; padding: 6px 2px; cursor: pointer; }
+.subnav-link { background: transparent; border: none; color: var(--muted); font-weight: 700; letter-spacing: .2px; padding: 6px 2px; cursor: pointer; position: relative; }
 .subnav-link:hover { color: var(--text); }
 .subnav-link.active { color: var(--accent); }
+.subnav-link::after { content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 2px; background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform .18s ease; }
+.subnav-link:hover::after, .subnav-link.active::after { transform: scaleX(1); }
 .container { max-width: 980px; margin: 0 auto; padding: 28px; }
 .header { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; }
 .header h1 { margin: 0; font-size: 22px; letter-spacing: .3px; color: var(--text); text-align: center; }
@@ -863,9 +1121,46 @@ select option { color: inherit; background: initial; }
 .primary { background: #FFCC00; color: #111; border: none; padding: 14px 32px; border-radius: 12px; cursor: pointer; font-weight: 700; letter-spacing: .2px; box-shadow: 0 5px 15px rgba(255,204,0,0.35); transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; animation: pulseAccent 2.4s ease infinite; min-width: 260px; }
 .primary:hover { transform: scale(1.03); box-shadow: 0 8px 20px rgba(255,204,0,0.45); filter: saturate(1.05) brightness(1.03); }
 .primary:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
- .games-list { display: grid; gap: 12px; }
- .game-item { display: flex; align-items: center; justify-content: space-between; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 12px; padding: 14px 16px; }
- .game-title { color: var(--text); font-weight: 600; }
+ .games-section { animation: fadeUp .35s ease both; }
+ .games-header { display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+ .games-title { margin: 0; font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Oxygen, Fira Sans, Droid Sans, Helvetica Neue, Arial, sans-serif; font-weight: 900; letter-spacing: .8px; text-transform: uppercase; font-size: 36px; color: var(--text); text-shadow: 0 0 8px rgba(255,204,0,0.35), 0 0 16px rgba(255,204,0,0.18); }
+ .games-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+ .game-card { width: 100%; display: flex; gap: 16px; align-items: center; border-radius: 12px; overflow: hidden; padding: 14px 16px; background: var(--input-bg); border: 1px solid var(--input-border); box-shadow: 0 6px 16px var(--shadow-color); transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; animation: fadeUp .35s ease both; }
+ .game-card:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 22px 46px var(--shadow-color), 0 0 22px rgba(255,204,0,0.20); border-color: rgba(255,204,0,0.35); }
+ .game-icon-circle { width: 56px; height: 56px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--thead-bg); color: var(--accent); border: 1px solid var(--card-border); box-shadow: 0 6px 14px var(--shadow-color); font-size: 24px; }
+ .game-info { display: grid; gap: 6px; }
+ .game-title { color: var(--text); font-weight: 700; letter-spacing: .2px; }
+ .game-desc { color: var(--muted); font-size: 14px; }
+ .game-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+ .tag { display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 999px; background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.14)), var(--thead-bg); color: var(--text); border: 1px solid var(--card-border); font-size: 12px; }
+ .tag-green { background: linear-gradient(135deg, rgba(0,255,128,0.08), rgba(0,0,0,0.14)); border-color: rgba(0,255,128,0.25); }
+ .game-actions { margin-left: auto; display: flex; align-items: center; }
+ .game-actions .game-play { height: 44px; border-radius: 12px; transition: transform .18s ease, box-shadow .18s ease; }
+.game-actions .game-play:hover { transform: scale(1.02); box-shadow: 0 10px 24px rgba(255,204,0,0.45); }
+.jump-container { position: relative; height: 180px; border-radius: 12px; background: var(--card-bg); border: 1px solid var(--card-border); overflow: hidden; box-shadow: inset 0 -40px 80px rgba(0,0,0,0.25); cursor: pointer; }
+.ground { position: absolute; left: 0; right: 0; bottom: 0; height: 18px; background: var(--thead-bg); box-shadow: 0 -1px 0 rgba(255,204,0,0.12) inset; }
+.dino { position: absolute; left: 10%; bottom: 10px; width: 40px; height: 40px; display: grid; place-items: center; font-size: 26px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 10px; box-shadow: 0 8px 18px var(--shadow-color); }
+.obstacle { position: absolute; bottom: 10px; width: 40px; height: 40px; transform: translateX(-50%); }
+.ob-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: var(--input-bg); border: 1px solid var(--input-border); box-shadow: 0 8px 18px var(--shadow-color); }
+.jump-hint { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-weight: 600; }
+.jump-lost { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 900; font-size: 26px; letter-spacing: .6px; color: var(--accent); text-shadow: 0 0 8px rgba(255,204,0,0.55), 0 0 16px rgba(255,204,0,0.35); background: rgba(0,0,0,0.35); }
+.burst { position: absolute; font-weight: 800; font-size: 14px; color: var(--accent); text-shadow: 0 0 8px rgba(255,204,0,0.55), 0 0 16px rgba(255,204,0,0.35); background: rgba(0,0,0,0.25); border: 1px solid rgba(255,204,0,0.25); padding: 6px 8px; border-radius: 8px; animation: burstUp .9s ease-out forwards; pointer-events: none; }
+@keyframes burstUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-40px); opacity: 0; } }
+.kcal-display { font-weight: 700; }
+.kcal-pulse { color: var(--accent); text-shadow: 0 0 8px rgba(255,204,0,0.55), 0 0 16px rgba(255,204,0,0.35); animation: kcalFlash .25s ease; }
+@keyframes kcalFlash { 0% { filter: brightness(1); } 50% { filter: brightness(1.18); } 100% { filter: brightness(1); } }
+.match-container { position: relative; margin-top: 12px; }
+.match-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.match-card { position: relative; height: 92px; border-radius: 12px; perspective: 800px; cursor: pointer; }
+.match-card .face { position: absolute; inset: 0; display: grid; place-items: center; border: 1px solid var(--input-border); border-radius: 12px; backface-visibility: hidden; transition: transform .38s ease, box-shadow .18s ease; }
+.match-card .front { background: var(--input-bg); color: var(--muted); box-shadow: 0 8px 18px var(--shadow-color); }
+.match-card .back { transform: rotateY(180deg); background: var(--card-bg); color: var(--text); box-shadow: 0 10px 22px var(--shadow-color); }
+.match-card.flipped .front, .match-card.matched .front { transform: rotateY(180deg); }
+.match-card.flipped .back, .match-card.matched .back { transform: rotateY(0deg); }
+.match-card.matched .back { border-color: rgba(46,204,113,0.55); box-shadow: 0 10px 22px rgba(46,204,113,0.25); }
+.food-icon { font-size: 24px; margin-bottom: 4px; font-family: 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji', sans-serif; }
+.label { font-weight: 700; text-align: center; padding: 0 8px; }
+.match-win { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-weight: 900; font-size: 22px; color: var(--accent); text-shadow: 0 0 8px rgba(255,204,0,0.55), 0 0 16px rgba(255,204,0,0.35); background: rgba(0,0,0,0.45); }
  .table-wrap { overflow-x: auto; margin-top: 18px; border-radius: 12px; }
  table { width: 100%; border-collapse: separate; border-spacing: 0; }
  thead th { position: sticky; top: 0; z-index: 1; }
