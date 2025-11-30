@@ -246,21 +246,7 @@ onMounted(() => {
         </table>
       </div>
 
-      <div class="notes">
-        <p>
-          Les formules utilisées: Mifflin-St Jeor, Harris-Benedict révisée, et Katch-McArdle
-          (nécessite la masse grasse). Elles estiment le BMR, puis le TDEE est obtenu via un
-          facteur d’activité.
-        </p>
-        <p>
-          1 lb (~0,45 kg) ≈ 3 500 kcal; 1 kg ≈ 7 700 kcal. Un déficit excédant 1 000 kcal/j
-          n’est généralement pas conseillé. Une perte trop rapide peut réduire la masse
-          musculaire et donc le BMR.
-        </p>
-        <p>
-          Associez ces chiffres à une alimentation équilibrée et une activité régulière.
-        </p>
-      </div>
+      
     </section>
     <div v-if="showAuth" class="modal">
       <div class="overlay" @click="showAuth = false"></div>
@@ -304,26 +290,31 @@ onMounted(() => {
 .header { display: flex; flex-direction: column; gap: 6px; }
 .header h1 { margin: 0; font-size: 32px; letter-spacing: .2px; color: var(--text); }
 .header p { margin: 0; color: var(--muted); }
-.card { background: rgba(30,30,30,0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 35px 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.35), 0 0 20px rgba(255,204,0,0.08); position: relative; animation: fadeUp .45s ease both; }
+.card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid var(--card-border); border-radius: 16px; padding: 35px 40px; box-shadow: 0 20px 40px var(--shadow-color), 0 0 20px rgba(255,204,0,0.08); position: relative; animation: fadeUp .45s ease both; }
 .card::before { content: ""; position: absolute; inset: 0; border-radius: 16px; pointer-events: none; box-shadow: 0 0 0 1px rgba(255,204,0,0.10) inset; }
+.card + .card { margin-top: 24px; }
 .card > h2 { font-size: 22px; font-weight: 600; letter-spacing: 0.5px; margin: 0 0 14px; }
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 label { display: flex; flex-direction: column; gap: 8px; font-weight: 600; color: var(--text); }
-input, select { background: #111; color: var(--text); border: 1px solid #333; border-radius: 10px; padding: 12px 14px; font-size: 14px; transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
-input::placeholder { color: #777; }
+input, select { background: var(--input-bg); color: var(--text); border: 1px solid var(--input-border); border-radius: 10px; padding: 12px 14px; font-size: 14px; transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+input::placeholder, select::placeholder { color: var(--placeholder); }
 input:focus, select:focus { outline: none; border-color: #f1c40f; box-shadow: 0 0 0 3px rgba(241,196,15,0.2); transform: translateY(-1px); }
 .fieldset { border: 1px solid #30363d; border-radius: 10px; padding: 12px 14px; }
 .inline { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; color: var(--text); }
 .inline input[type="radio"] { accent-color: #f1c40f; }
 .actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
-.primary { background: #f1c40f; color: var(--accent-dark); border: none; padding: 12px 26px; border-radius: 12px; cursor: pointer; font-weight: 700; letter-spacing: .2px; box-shadow: 0 5px 15px rgba(241,196,15,0.35); transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; animation: pulseAccent 2.4s ease infinite; }
-.primary:hover { transform: scale(1.03); box-shadow: 0 8px 20px rgba(241,196,15,0.45); filter: brightness(1.05); }
-.table-wrap { overflow-x: auto; margin-top: 18px; }
-table { width: 100%; border-collapse: collapse; }
-th, td { border-bottom: 1px solid #1f2937; padding: 12px; text-align: left; }
-th { background: #121822; color: var(--muted); }
-tbody tr { transition: background-color .18s ease; }
-tbody tr:hover { background: rgba(255,204,0,0.06); }
+.primary { background: #FFCC00; color: #111; border: none; padding: 12px 26px; border-radius: 12px; cursor: pointer; font-weight: 700; letter-spacing: .2px; box-shadow: 0 5px 15px rgba(255,204,0,0.35); transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; animation: pulseAccent 2.4s ease infinite; }
+.primary:hover { transform: scale(1.03); box-shadow: 0 8px 20px rgba(255,204,0,0.45); filter: saturate(1.05) brightness(1.03); }
+.primary:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
+ .table-wrap { overflow-x: auto; margin-top: 18px; border-radius: 12px; }
+ table { width: 100%; border-collapse: separate; border-spacing: 0; }
+ thead th { position: sticky; top: 0; z-index: 1; }
+ th, td { border-bottom: 1px solid #1f2937; padding: 14px 16px; }
+th { background: var(--thead-bg); color: var(--text); font-weight: 700; letter-spacing: .2px; }
+ tbody tr { transition: background-color .18s ease; }
+ tbody tr:nth-child(odd) { background: rgba(255,204,0,0.03); }
+ tbody tr:hover { background: rgba(255,204,0,0.06); }
+ td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 .notes { margin-top: 16px; color: var(--muted); }
 @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
 
@@ -334,4 +325,7 @@ tbody tr:hover { background: rgba(255,204,0,0.06); }
 .modal-form { display: grid; gap: 12px; }
 .modal-actions { display: flex; gap: 10px; align-items: center; }
 .link { background: transparent; color: var(--accent); border: none; padding: 10px; cursor: pointer; }
+.form-message { margin-top: 8px; font-size: 14px; }
+.form-message.error { color: var(--error); }
+.form-message.success { color: var(--success); }
 </style>
